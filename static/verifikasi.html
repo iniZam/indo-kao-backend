@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Verifikasi Terjemahan Bahasa Kao - Indonesia</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .table-row-hover:hover { background-color: #f8fafc; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+    <!-- Top Navbar -->
+    <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center font-bold text-xl backdrop-blur-sm border border-white/20">
+                    <i class="fa-solid fa-language"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold tracking-tight">Portal Verifikasi Penutur Lokal</h1>
+                    <p class="text-xs text-indigo-200">Sistem Penerjemah Multi-Dialek Kao (Pagu, Modole, Towiliko)</p>
+                </div>
+            </div>
+
+            <!-- Server Status & Actions -->
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Status Badge Server -->
+                <button onclick="bukaModalPengaturanServer()" id="server-status-badge" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-800/80 hover:bg-indigo-900 border border-indigo-400/30 flex items-center gap-2 transition" title="Klik untuk mengubah URL server">
+                    <span id="server-status-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                    <span id="server-status-text">Memeriksa Server...</span>
+                    <i class="fa-solid fa-gear text-[10px] text-indigo-300"></i>
+                </button>
+
+                <button onclick="sinkronkanKamus()" id="btn-sync" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-xs sm:text-sm font-semibold rounded-lg shadow transition flex items-center gap-2">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span>Sinkron ke Kamus</span>
+                </button>
+                <button onclick="mulaiRetrainModel()" id="btn-retrain" class="px-3.5 py-1.5 bg-indigo-900 hover:bg-indigo-800 active:scale-95 text-xs sm:text-sm font-semibold rounded-lg shadow border border-indigo-400/30 transition flex items-center gap-2">
+                    <i class="fa-solid fa-brain"></i>
+                    <span>Latih Ulang NMT</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Notification Toast -->
+        <div id="toast" class="hidden fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300">
+            <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+            <span id="toast-msg" class="text-sm font-medium">Operasi berhasil</span>
+        </div>
+
+        <!-- Warning Banner jika Gagal Terhubung ke Server -->
+        <div id="connection-error-banner" class="hidden bg-rose-50 border-l-4 border-rose-500 p-4 rounded-xl shadow-sm">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div class="flex items-start space-x-3">
+                    <div class="text-rose-600 text-xl mt-0.5">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-rose-900">Gagal Terhubung ke Server Backend</p>
+                        <p class="text-xs text-rose-700 mt-0.5" id="connection-error-detail">
+                            Halaman tidak dapat menghubungi server backend di <code id="err-url" class="font-mono bg-rose-100 px-1 rounded">http://localhost:8000</code>.
+                        </p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="cobaKoneksiKe('http://localhost:8000')" class="px-3 py-1 bg-white border border-rose-300 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-semibold shadow-sm transition">
+                        Gunakan localhost:8000
+                    </button>
+                    <button onclick="cobaKoneksiKe('http://192.168.0.116:8000')" class="px-3 py-1 bg-white border border-rose-300 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-semibold shadow-sm transition">
+                        Gunakan IP Wi-Fi (192.168.0.116)
+                    </button>
+                    <button onclick="bukaModalPengaturanServer()" class="px-3 py-1 bg-rose-600 text-white hover:bg-rose-700 rounded-lg text-xs font-semibold shadow-sm transition">
+                        Atur Manual
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Banner Status Pelatihan Model NMT -->
+        <div id="training-banner" class="hidden bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-sm">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="animate-spin text-amber-600 text-xl">
+                        <i class="fa-solid fa-circle-notch"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-amber-900" id="training-title">Model NMT Sedang Dilatih...</p>
+                        <p class="text-xs text-amber-700" id="training-detail">Memproses pembaruan dataset di background.</p>
+                    </div>
+                </div>
+                <span class="text-xs font-semibold bg-amber-200 text-amber-800 px-2.5 py-1 rounded-full">Background Job</span>
+            </div>
+        </div>
+
+        <!-- Dashboard Stats Cards -->
+        <section class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <!-- Menunggu -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-amber-600">Menunggu</p>
+                        <h3 class="text-2xl font-bold text-slate-800 mt-1" id="stat-menunggu">0</h3>
+                    </div>
+                    <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">Perlu disaring & diverifikasi</p>
+            </div>
+
+            <!-- Terverifikasi -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-emerald-600">Terverifikasi</p>
+                        <h3 class="text-2xl font-bold text-slate-800 mt-1" id="stat-terverifikasi">0</h3>
+                    </div>
+                    <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">Telah disetujui penutur lokal</p>
+            </div>
+
+            <!-- Ditolak -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-rose-600">Ditolak</p>
+                        <h3 class="text-2xl font-bold text-slate-800 mt-1" id="stat-ditolak">0</h3>
+                    </div>
+                    <div class="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">Data tidak valid / diabaikan</p>
+            </div>
+
+            <!-- Total Terjemahan -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-indigo-600">Total Masuk</p>
+                        <h3 class="text-2xl font-bold text-slate-800 mt-1" id="stat-total">0</h3>
+                    </div>
+                    <div class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-database"></i>
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">Akumulasi hasil translate user</p>
+            </div>
+        </section>
+
+        <!-- Filters & Search Toolbar -->
+        <section class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                
+                <!-- Status Tab Buttons -->
+                <div class="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+                    <button onclick="setFilterStatus('menunggu')" id="tab-menunggu" class="tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold transition bg-white text-slate-900 shadow-sm">
+                        Menunggu Verifikasi
+                    </button>
+                    <button onclick="setFilterStatus('terverifikasi')" id="tab-terverifikasi" class="tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold transition text-slate-600 hover:text-slate-900">
+                        Terverifikasi
+                    </button>
+                    <button onclick="setFilterStatus('ditolak')" id="tab-ditolak" class="tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold transition text-slate-600 hover:text-slate-900">
+                        Ditolak
+                    </button>
+                    <button onclick="setFilterStatus('semua')" id="tab-semua" class="tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold transition text-slate-600 hover:text-slate-900">
+                        Semua
+                    </button>
+                </div>
+
+                <!-- Dialek Filter & Search -->
+                <div class="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                    <select id="filter-dialek" onchange="muatData()" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="semua">Semua Dialek</option>
+                        <option value="PAGU">Dialek Pagu</option>
+                        <option value="MODOLE">Dialek Modole</option>
+                        <option value="TOWILIKO">Dialek Towiliko</option>
+                    </select>
+
+                    <div class="relative w-full sm:w-64">
+                        <input type="text" id="search-input" onkeyup="handleSearch(event)" placeholder="Cari kalimat..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                    </div>
+
+                    <button onclick="muatData()" title="Segarkan Data" class="p-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 rounded-xl transition">
+                        <i class="fa-solid fa-rotate-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Reviewer Name Input for Quick Action -->
+            <div class="flex items-center gap-3 pt-2 border-t border-slate-100">
+                <label for="reviewer-name" class="text-xs font-semibold text-slate-600 whitespace-nowrap">
+                    <i class="fa-solid fa-user-check mr-1 text-indigo-500"></i> Nama Penutur / Admin:
+                </label>
+                <input type="text" id="reviewer-name" placeholder="Misal: Anjeli / Penutur Asli Pagu" value="Penutur Lokal" class="max-w-xs px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <span class="text-[11px] text-slate-400 hidden sm:inline">(Nama ini akan dicatat saat menyetujui terjemahan)</span>
+            </div>
+        </section>
+
+        <!-- Translation Verification Table -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead class="bg-slate-100/75 border-b border-slate-200 text-slate-600 uppercase tracking-wider text-[11px]">
+                        <tr>
+                            <th class="py-3 px-4 font-semibold w-12 text-center">ID</th>
+                            <th class="py-3 px-4 font-semibold w-24">Sumber</th>
+                            <th class="py-3 px-4 font-semibold w-36">Arah / Dialek</th>
+                            <th class="py-3 px-4 font-semibold w-1/4">Teks Sumber Asli</th>
+                            <th class="py-3 px-4 font-semibold w-1/4">Terjemahan Mesin</th>
+                            <th class="py-3 px-4 font-semibold w-1/4">Koreksi Penutur Lokal</th>
+                            <th class="py-3 px-4 font-semibold w-28 text-center">Aksi Verifikasi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-slate-100 text-slate-700">
+                        <tr>
+                            <td colspan="7" class="py-12 text-center text-slate-400">
+                                <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2 text-indigo-500"></i>
+                                <p class="text-xs">Memuat data terjemahan...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty State Container -->
+            <div id="empty-state" class="hidden py-16 text-center text-slate-400 space-y-2">
+                <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-2xl">
+                    <i class="fa-solid fa-inbox"></i>
+                </div>
+                <h4 class="text-sm font-bold text-slate-700">Tidak ada data untuk status ini</h4>
+                <p class="text-xs text-slate-500 max-w-sm mx-auto">Semua hasil terjemahan telah diverifikasi atau belum ada permintaan terjemahan baru dari user.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Pengaturan URL Server -->
+    <div id="modal-server" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b pb-3">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-server text-indigo-600"></i>
+                    <h3 class="text-sm font-bold text-slate-800">Pengaturan Alamat Server Backend</h3>
+                </div>
+                <button onclick="tutupModalPengaturanServer()" class="text-slate-400 hover:text-slate-600 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <p class="text-xs text-slate-600">
+                Tentukan alamat server FastAPI Anda. Jika membuka file HTML ini secara langsung di browser tanpa web server (<code>file:///...</code>), gunakan <code>http://localhost:8000</code>.
+            </p>
+
+            <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-700">URL Server:</label>
+                <input type="text" id="input-server-url" value="http://localhost:8000" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div class="flex flex-wrap gap-2 text-xs">
+                <span class="text-slate-500 self-center">Pilihan Cepat:</span>
+                <button onclick="document.getElementById('input-server-url').value='http://localhost:8000'" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-mono text-[11px]">
+                    localhost:8000
+                </button>
+                <button onclick="document.getElementById('input-server-url').value='http://192.168.0.116:8000'" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-mono text-[11px]">
+                    192.168.0.116:8000
+                </button>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t">
+                <button onclick="tutupModalPengaturanServer()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition">
+                    Batal
+                </button>
+                <button onclick="simpanPengaturanServer()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow transition">
+                    Simpan & Tes Koneksi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        let currentStatusFilter = 'menunggu';
+        let searchQuery = '';
+
+        // Menentukan Base URL Backend secara dinamis dan cerdas
+        function getApiBaseUrl() {
+            // 1. Cek penyimpanan localStorage
+            const saved = localStorage.getItem('backend_api_url');
+            if (saved && saved.trim() !== '') {
+                return saved.trim().replace(/\/+$/, '');
+            }
+
+            // 2. Jika dibuka lewat file:/// (double click di Explorer)
+            if (window.location.protocol === 'file:') {
+                return 'http://localhost:8000';
+            }
+
+            // 3. Jika dibuka lewat Live Server atau port lain (misal 5500, 3000)
+            if (window.location.port && window.location.port !== '8000') {
+                const hostname = window.location.hostname || 'localhost';
+                return `http://${hostname}:8000`;
+            }
+
+            // 4. Jika dibuka langsung dari FastAPI (http://localhost:8000/verifikasi)
+            return window.location.origin;
+        }
+
+        // Update indikator status server di navbar
+        function updateServerStatus(connected, serverUrl) {
+            const dot = document.getElementById('server-status-dot');
+            const text = document.getElementById('server-status-text');
+            const banner = document.getElementById('connection-error-banner');
+            const errUrl = document.getElementById('err-url');
+
+            if (connected) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+                text.textContent = `Server: ${serverUrl.replace(/^https?:\/\//, '')}`;
+                banner.classList.add('hidden');
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-rose-400';
+                text.textContent = `Server Terputus`;
+                errUrl.textContent = serverUrl;
+                banner.classList.remove('hidden');
+            }
+        }
+
+        // Modal Pengaturan Server
+        function bukaModalPengaturanServer() {
+            document.getElementById('input-server-url').value = getApiBaseUrl();
+            document.getElementById('modal-server').classList.remove('hidden');
+        }
+
+        function tutupModalPengaturanServer() {
+            document.getElementById('modal-server').classList.add('hidden');
+        }
+
+        function simpanPengaturanServer() {
+            const inputUrl = document.getElementById('input-server-url').value.trim().replace(/\/+$/, '');
+            if (inputUrl) {
+                localStorage.setItem('backend_api_url', inputUrl);
+                tutupModalPengaturanServer();
+                showToast(`Server URL diubah ke: ${inputUrl}`);
+                muatData();
+            }
+        }
+
+        function cobaKoneksiKe(url) {
+            localStorage.setItem('backend_api_url', url);
+            showToast(`Mencoba menghubungkan ke ${url}...`);
+            muatData();
+        }
+
+        // Tampilkan Toast Notifikasi
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.textContent = message;
+            if (isError) {
+                toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-400 text-lg';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3500);
+        }
+
+        // Set Tab Status Filter
+        function setFilterStatus(status) {
+            currentStatusFilter = status;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold transition text-slate-600 hover:text-slate-900';
+            });
+            const activeBtn = document.getElementById(`tab-${status}`);
+            if (activeBtn) {
+                activeBtn.className = 'tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold transition bg-white text-slate-900 shadow-sm';
+            }
+            muatData();
+        }
+
+        // Handle Search Bar
+        let searchTimeout;
+        function handleSearch(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchQuery = document.getElementById('search-input').value.trim();
+                muatData();
+            }, 300);
+        }
+
+        // Format Arah Terjemahan agar rapi
+        function formatArah(arah, dialek) {
+            let label = arah;
+            if (arah.includes('indonesia_ke_') || arah.includes('indo_ke_')) {
+                label = `ID → ${dialek || 'Kao'}`;
+            } else if (arah.includes('_ke_indonesia') || arah.includes('_ke_indo')) {
+                label = `${dialek || 'Kao'} → ID`;
+            }
+            return label;
+        }
+
+        // Muat Data dari API Backend
+        async function muatData() {
+            const baseUrl = getApiBaseUrl();
+            const dialek = document.getElementById('filter-dialek').value;
+            const tbody = document.getElementById('table-body');
+            const emptyState = document.getElementById('empty-state');
+
+            try {
+                const url = `${baseUrl}/api/v1/verifikasi/list?status=${currentStatusFilter}&dialek=${dialek}&q=${encodeURIComponent(searchQuery)}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    updateServerStatus(true, baseUrl);
+
+                    // Update stats cards
+                    if (data.stats) {
+                        document.getElementById('stat-total').textContent = data.stats.total || 0;
+                        document.getElementById('stat-menunggu').textContent = data.stats.menunggu || 0;
+                        document.getElementById('stat-terverifikasi').textContent = data.stats.terverifikasi || 0;
+                        document.getElementById('stat-ditolak').textContent = data.stats.ditolak || 0;
+                    }
+
+                    if (data.data.length === 0) {
+                        tbody.innerHTML = '';
+                        emptyState.classList.remove('hidden');
+                        return;
+                    }
+
+                    emptyState.classList.add('hidden');
+                    tbody.innerHTML = data.data.map(item => renderRow(item)).join('');
+                } else {
+                    updateServerStatus(false, baseUrl);
+                    showToast(data.message || 'Gagal memuat data', true);
+                }
+            } catch (err) {
+                console.error('Error muat data:', err);
+                updateServerStatus(false, baseUrl);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-10 text-center text-rose-500">
+                            <i class="fa-solid fa-plug-circle-xmark text-3xl mb-2"></i>
+                            <p class="font-bold text-sm">Gagal terhubung ke server backend (${baseUrl})</p>
+                            <p class="text-xs text-slate-500 mt-1">Pastikan server backend sudah dijalankan di terminal: <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">python main.py</code></p>
+                        </td>
+                    </tr>
+                `;
+                showToast(`Gagal terhubung ke server (${baseUrl})`, true);
+            }
+        }
+
+        // Render baris tabel
+        function renderRow(item) {
+            const isAudio = item.sumber_input === 'audio';
+            const badgeSumber = isAudio
+                ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200"><i class="fa-solid fa-microphone"></i> Audio</span>`
+                : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200"><i class="fa-solid fa-keyboard"></i> Teks</span>`;
+
+            let badgeStatus = '';
+            if (item.status === 'menunggu') {
+                badgeStatus = `<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Menunggu</span>`;
+            } else if (item.status === 'terverifikasi') {
+                badgeStatus = `<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">Terverifikasi</span>`;
+            } else {
+                badgeStatus = `<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">Ditolak</span>`;
+            }
+
+            const initialKoreksi = item.teks_koreksi ? item.teks_koreksi : item.teks_terjemahan;
+
+            return `
+            <tr class="table-row-hover transition" id="row-${item.id}">
+                <td class="py-3 px-4 text-center font-mono text-slate-400 font-bold text-xs">${item.id}</td>
+                <td class="py-3 px-4">${badgeSumber}</td>
+                <td class="py-3 px-4">
+                    <div class="font-semibold text-slate-800">${formatArah(item.arah_terjemahan, item.dialek)}</div>
+                    <div class="text-[10px] text-slate-400">${item.waktu_dibuat ? item.waktu_dibuat.split(' ')[0] : ''}</div>
+                </td>
+                <td class="py-3 px-4">
+                    <div class="font-medium text-slate-900 leading-snug">${escapeHtml(item.teks_sumber)}</div>
+                </td>
+                <td class="py-3 px-4">
+                    <div class="text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-200/60 leading-snug">
+                        ${escapeHtml(item.teks_terjemahan)}
+                    </div>
+                </td>
+                <td class="py-3 px-4">
+                    <div class="space-y-1">
+                        <textarea id="koreksi-${item.id}" rows="2" class="w-full p-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition resize-none" placeholder="Ketik koreksi jika terjemahan salah...">${escapeHtml(initialKoreksi)}</textarea>
+                        <div class="flex items-center justify-between text-[10px] text-slate-400">
+                            <span>Status: ${badgeStatus}</span>
+                            ${item.penutur_lokal ? `<span title="Diverifikasi oleh">Oleh: ${escapeHtml(item.penutur_lokal)}</span>` : ''}
+                        </div>
+                    </div>
+                </td>
+                <td class="py-3 px-4 text-center">
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button onclick="prosesVerifikasi(${item.id}, 'terverifikasi')" title="Setujui (dan sinkronkan ke kamus)" class="p-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg shadow-sm transition">
+                            <i class="fa-solid fa-check"></i>
+                        </button>
+                        <button onclick="prosesVerifikasi(${item.id}, 'ditolak')" title="Tolak terjemahan ini" class="p-2 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg shadow-sm transition">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                        <button onclick="hapusItem(${item.id})" title="Hapus dari riwayat" class="p-2 bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-600 rounded-lg transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            `;
+        }
+
+        // Proses Verifikasi Item
+        async function prosesVerifikasi(id, status) {
+            const baseUrl = getApiBaseUrl();
+            const koreksiElem = document.getElementById(`koreksi-${id}`);
+            const teksKoreksi = koreksiElem ? koreksiElem.value.trim() : '';
+            const penuturLokal = document.getElementById('reviewer-name').value.trim() || 'Penutur Lokal';
+
+            try {
+                const res = await fetch(`${baseUrl}/api/v1/verifikasi/${id}/proses`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: status,
+                        teks_koreksi: teksKoreksi,
+                        penutur_lokal: penuturLokal,
+                        sinkron_sekarang: true
+                    })
+                });
+
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showToast(status === 'terverifikasi' ? 'Terjemahan berhasil disetujui & disinkronkan!' : 'Terjemahan ditolak.');
+                    muatData();
+                } else {
+                    showToast(data.message || 'Gagal memproses verifikasi', true);
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Terjadi kesalahan saat memverifikasi', true);
+            }
+        }
+
+        // Hapus Item
+        async function hapusItem(id) {
+            if (!confirm(`Hapus riwayat terjemahan ID ${id}?`)) return;
+            const baseUrl = getApiBaseUrl();
+            try {
+                const res = await fetch(`${baseUrl}/api/v1/verifikasi/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showToast('Item berhasil dihapus');
+                    muatData();
+                } else {
+                    showToast(data.message || 'Gagal menghapus', true);
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Gagal menghapus item', true);
+            }
+        }
+
+        // Sinkronkan Kamus
+        async function sinkronkanKamus() {
+            const baseUrl = getApiBaseUrl();
+            const btn = document.getElementById('btn-sync');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> <span>Menyinkronkan...</span>`;
+
+            try {
+                const res = await fetch(`${baseUrl}/api/v1/model/sinkronkan`, { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showToast(data.message || 'Kamus berhasil disinkronkan!');
+                    muatData();
+                } else {
+                    showToast(data.message || 'Gagal menyinkronkan kamus', true);
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Terjadi kesalahan koneksi', true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> <span>Sinkron ke Kamus</span>`;
+            }
+        }
+
+        // Retrain Model NMT
+        async function mulaiRetrainModel() {
+            if (!confirm('Mulai proses pelatihan ulang model NMT di background dengan dataset kamus terbaru?')) return;
+
+            const baseUrl = getApiBaseUrl();
+            const btn = document.getElementById('btn-retrain');
+            btn.disabled = true;
+            try {
+                const res = await fetch(`${baseUrl}/api/v1/model/retrain`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ epochs: 30 })
+                });
+                const data = await res.json();
+                showToast(data.message || 'Pelatihan model dimulai di background');
+                pantauStatusTraining();
+            } catch (err) {
+                console.error(err);
+                showToast('Gagal memulai pelatihan model', true);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Pantau Status Training secara polling berkala
+        let pollingInterval = null;
+        async function pantauStatusTraining() {
+            const baseUrl = getApiBaseUrl();
+            const banner = document.getElementById('training-banner');
+            const title = document.getElementById('training-title');
+            const detail = document.getElementById('training-detail');
+
+            clearInterval(pollingInterval);
+            pollingInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`${baseUrl}/api/v1/model/status`);
+                    const data = await res.json();
+                    if (data.status === 'success' && data.data) {
+                        const status = data.data;
+                        if (status.is_training) {
+                            banner.classList.remove('hidden');
+                            title.textContent = `Model NMT Sedang Dilatih (${status.progress || 'Proses...'})`;
+                            detail.textContent = status.epoch_info || `Sampel: ${status.total_samples || 0} kalimat.`;
+                        } else {
+                            banner.classList.add('hidden');
+                            clearInterval(pollingInterval);
+                            if (status.last_trained) {
+                                showToast(`Pelatihan NMT Selesai! (${status.last_trained})`);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Polling status error:', e);
+                }
+            }, 3000);
+        }
+
+        // Helper cegah XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Inisialisasi awal saat halaman dibuka
+        window.addEventListener('DOMContentLoaded', () => {
+            muatData();
+            pantauStatusTraining();
+        });
+    </script>
+</body>
+</html>

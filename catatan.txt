@@ -1,0 +1,34 @@
+1. Penyesuaian Izin (Permissions) di AndroidManifest.xmlKarena aplikasi Android sekarang harus berkomunikasi dengan server lokal melalui jaringan HTTP (bukan HTTPS), Anda wajib menambahkan izin internet dan akses cleartext traffic.Tambahkan izin internet di atas tag <application>:<uses-permission android:name="android.permission.INTERNET" /><uses-permission android:name="android.permission.RECORD_AUDIO" />Tambahkan konfigurasi usesCleartextTraffic di dalam tag <application>:android:usesCleartextTraffic="true"2. Penyesuaian Base URL RetrofitJangan gunakan http://localhost:8000 atau [http://127.0.0.1:8000](http://127.0.0.1:8000) di dalam Android Studio.Gunakan IP Address komputer/laptop Anda tempat server dijalankan (sesuai log Anda sebelumnya, gunakan [http://192.168.0.102:8000/](http://192.168.0.102:8000/)).3. Pembaruan Endpoint Retrofit (API Interface)Anda harus menyesuaikan antarmuka (interface) API di Kotlin/Java agar cocok dengan nama parameter yang ada di main.py untuk menghindari error 422 Unprocessable Entity dan 404 Not Found.Kotlinimport okhttp3.MultipartBody
+import okhttp3.RequestBody
+import retrofit2.Call
+import retrofit2.http.FormUrlEncoded
+import retrofit2.http.Multipart
+import retrofit2.http.POST
+import retrofit2.http.Part
+import retrofit2.http.Field
+
+interface TranslationApi {
+    // 1. Endpoint untuk Terjemahan via Suara (Mengirim File Audio)
+    @Multipart
+    @POST("/api/v1/translate/audio")
+    fun translateAudio(
+        @Part audio_file: MultipartBody.Part,  // Nama harus sama persis: audio_file
+        @Part("arah_terjemahan") arahTerjemahan: RequestBody // Nama harus sama persis: arah_terjemahan
+    ): Call<TranslationResponse>
+
+    // 2. Endpoint untuk Terjemahan via Teks/Ketikan
+    @FormUrlEncoded
+    @POST("/api/translate")
+    fun translateText(
+        @Field("teks_sumber") teksSumber: String, // Nama harus sama persis: teks_sumber
+        @Field("arah_terjemahan") arahTerjemahan: String // Nama harus sama persis: arah_terjemahan
+    ): Call<TranslationResponse>
+}
+4. Model Data Respons JSON (TranslationResponse.kt)Sesuaikan kelas model data (data class) untuk menangkap balasan dari server.Kotlindata class TranslationResponse(
+    val status: String,
+    val teks_sumber_dikenali: String,
+    val teks_terjemahan_akhir: String,
+    val url_audio_hasil: String? = null // Nullable karena endpoint teks mungkin tidak mengembalikan audio
+)
+5. Penanganan Output (Teks & Audio) pada Antarmuka (UI)
+Setelah Android menerima respons dari server, UI harus diperbarui:   Teks: Tampilkan nilai teks_sumber_dikenali dan teks_terjemahan_akhir ke dalam elemen TextView di layar aplikasi.   Audio: Berdasarkan proposal, Anda memiliki dua opsi untuk memutar audio:   Memutar URL Server: Gunakan MediaPlayer bawaan Android untuk memutar link dari url_audio_hasil (misal: [http://192.168.0.102:8000/static/audio_output/translated_suara1.mp3](http://192.168.0.102:8000/static/audio_output/translated_suara1.mp3)).Menggunakan Engine Lokal (Sesuai Proposal): Anda juga dapat memanfaatkan fitur Android Text-to-Speech Engine untuk langsung membaca teks hasil terjemahan (teks_terjemahan_akhir) secara luring di perangkat pengguna.  
